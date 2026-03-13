@@ -1,763 +1,389 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>誰說五十才知天命：小麥的命理綜合分析系統</title>
-  
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Lucide Icons CDN -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+import React, { useState, useEffect, useRef } from 'react';
+import { Sparkles, User, MessageCircle, Send, Loader2, ChevronDown, BookOpen, Star, AlertCircle, Copy, Download, Check, Settings2, Info, Key } from 'lucide-react';
 
-  <style>
-    /* 自訂捲軸樣式 */
-    .custom-scrollbar::-webkit-scrollbar {
-      width: 6px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-      background-color: #334155;
-      border-radius: 20px;
-    }
-    
-    /* Markdown 渲染基本樣式 */
-    .markdown-body strong { color: #a5b4fc; } /* text-indigo-300 */
-    .markdown-body em { color: #c7d2fe; } /* text-indigo-200 */
-    .markdown-body p { margin-bottom: 1em; }
-    .markdown-body ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
-    .markdown-body h1, .markdown-body h2, .markdown-body h3 { font-weight: bold; margin-top: 1.5em; margin-bottom: 0.5em; color: #f8fafc; }
-    .markdown-body h2 { font-size: 1.25em; }
-  </style>
-</head>
-<body class="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30 pb-20">
+// --- 資料定義 ---
+const MBTI_OPTIONS = [
+  "INTJ", "INTP", "ENTJ", "ENTP", "INFJ", "INFP", "ENFJ", "ENFP",
+  "ISTJ", "ISFJ", "ESTJ", "ESFJ", "ISTP", "ISFP", "ESTP", "ESFP"
+];
 
-  <!-- Toast 提示元件 (初始隱藏) -->
-  <div id="toast" class="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 opacity-0 invisible transition-all duration-300 translate-y-[-1rem]">
-    <div class="bg-emerald-600 text-white px-6 py-3 rounded-full shadow-lg shadow-emerald-900/20 flex items-center gap-2">
-      <i data-lucide="check" class="w-5 h-5"></i>
-      <span id="toast-msg" class="font-medium"></span>
+const HD_TYPES = ["顯示者 (Manifestor)", "生產者 (Generator)", "顯示生產者 (Manifesting Generator)", "投射者 (Projector)", "反映者 (Reflector)"];
+const HD_PROFILES = ["1/3", "1/4", "2/4", "2/5", "3/5", "3/6", "4/6", "4/1", "5/1", "5/2", "6/2", "6/3"];
+const HD_AUTHORITIES = [
+  "情緒權威 (Emotional Authority)",
+  "薦骨權威 (Sacral Authority)",
+  "直覺權威 (Splenic Authority)",
+  "意志力權威 (Ego / Heart Authority)",
+  "自我投射型權威 (Self-Projected Authority)",
+  "環境型權威（無內在權威）(Environmental / Mental Authority)",
+  "月亮權威 (Lunar Authority)"
+];
+
+const GENDER_OPTIONS = ["男", "女", "其他"];
+
+// 1 到 64 閘門
+const ALL_GATES = Array.from({ length: 64 }, (_, i) => i + 1);
+
+// 人類圖 64 閘門名稱對照表
+const GATE_NAMES = {
+  1: "創意/自我表達", 2: "接受/方向", 3: "秩序/釐清", 4: "公式化/解答", 5: "固定節奏/等待",
+  6: "摩擦/衝突", 7: "角色/引領", 8: "貢獻/團結", 9: "專注/細節", 10: "行為/愛自己",
+  11: "概念/想法", 12: "謹慎/停頓", 13: "聆聽/同理", 14: "權力技能/財富", 15: "極端/多元",
+  16: "技能/熱忱", 17: "意見/邏輯", 18: "修正/完美", 19: "需求/敏感", 20: "當下/覺察",
+  21: "獵人/掌控", 22: "優雅/情感", 23: "同化/剝落", 24: "合理化/回歸", 25: "宇宙之愛/天真",
+  26: "利己主義/行銷", 27: "照顧/滋養", 28: "玩家/冒險", 29: "承諾/深淵", 30: "感覺/慾望之火",
+  31: "領導/影響力", 32: "連續/延續", 33: "隱私/退隱", 34: "力量/偉大", 35: "改變/進展",
+  36: "危機/暗晦", 37: "家庭/友誼", 38: "戰士/抗爭", 39: "挑釁/阻礙", 40: "孤獨/解脫",
+  41: "收縮/幻想", 42: "成長/增加", 43: "洞見/突破", 44: "警覺/模式", 45: "聚集者/統治",
+  46: "決心/身體之愛", 47: "壓迫/領悟", 48: "深度/井", 49: "原則/革命", 50: "價值/鼎",
+  51: "震驚/喚醒", 52: "靜止/保持不動", 53: "開始/發展", 54: "野心/少女", 55: "精神/豐盛",
+  56: "刺激/流浪者", 57: "直覺/溫和", 58: "活力/喜悅", 59: "親密/散發", 60: "限制/接受",
+  61: "神秘/內在真理", 62: "細節/表達", 63: "懷疑/完成", 64: "困惑/未完成"
+};
+
+// 人類圖 36 條通道對照表
+const CHANNELS = [
+  { gates: [1, 8], name: "靈感通道", desc: "充滿創造力與自我表達" },
+  { gates: [2, 14], name: "煉金術通道", desc: "掌管財富與人生方向的跳動" },
+  { gates: [3, 60], name: "突變通道", desc: "帶來創新與跨越限制的能量" },
+  { gates: [4, 63], name: "邏輯通道", desc: "懷疑與尋求解答的科學腦" },
+  { gates: [5, 15], name: "韻律通道", desc: "順應自然與生命節奏" },
+  { gates: [6, 59], name: "親密通道", desc: "打破藩籬建立深刻連結" },
+  { gates: [7, 31], name: "創造領袖通道", desc: "被眾人推舉的未來指引者" },
+  { gates: [9, 52], name: "專注通道", desc: "靜止並聚焦於細節的力量" },
+  { gates: [10, 20], name: "覺醒通道", desc: "在當下展現對生命的熱愛" },
+  { gates: [10, 34], name: "探索通道", desc: "遵循信念的強大個體力量" },
+  { gates: [10, 57], name: "完美形式通道", desc: "直覺引導的求生與美感" },
+  { gates: [11, 56], name: "好奇通道", desc: "尋找並分享概念的說書人" },
+  { gates: [12, 22], name: "開放通道", desc: "帶有情緒深度的優雅表達" },
+  { gates: [13, 33], name: "浪子通道", desc: "收集秘密並見證歷史的紀錄者" },
+  { gates: [16, 48], name: "波長/才華通道", desc: "對完美技能與深度的渴望" },
+  { gates: [17, 62], name: "接受通道", desc: "組織意見與細節的管理者" },
+  { gates: [18, 58], name: "批評通道", desc: "渴望完美與修正錯誤的活力" },
+  { gates: [19, 49], name: "整合通道", desc: "敏感於需求與資源分配的革命者" },
+  { gates: [20, 34], name: "魅力通道", desc: "將強大能量化為當下行動" },
+  { gates: [20, 57], name: "腦波通道", desc: "電光石火間的直覺覺知" },
+  { gates: [21, 45], name: "金錢通道", desc: "掌控物質與資源的統治者" },
+  { gates: [23, 43], name: "結構通道", desc: "將獨特洞見化為語言的天才" },
+  { gates: [24, 61], name: "意識通道", desc: "探索未知奧秘的思想家" },
+  { gates: [25, 51], name: "發起通道", desc: "躍入未知競爭的勇敢先鋒" },
+  { gates: [26, 44], name: "投降通道", desc: "運用本能進行說服與行銷" },
+  { gates: [27, 50], name: "保存通道", desc: "守護價值觀與照顧他人的本能" },
+  { gates: [28, 38], name: "掙扎通道", desc: "尋求生命意義的頑強戰士" },
+  { gates: [29, 46], name: "發現通道", desc: "全然投入體驗並發現成功的幸運兒" },
+  { gates: [30, 41], name: "夢想通道", desc: "體驗強烈情感與渴望的幻想家" },
+  { gates: [32, 54], name: "轉化通道", desc: "具備物質野心與長遠眼光的驅力" },
+  { gates: [34, 57], name: "力量通道", desc: "直覺結合力量的獨立求生者" },
+  { gates: [35, 36], name: "無常通道", desc: "在情感危機中體驗生命的冒險家" },
+  { gates: [37, 40], name: "經營通道", desc: "建立契約與重視家族連結" },
+  { gates: [39, 55], name: "情感通道", desc: "在情緒波動中尋求精神豐盛" },
+  { gates: [42, 53], name: "循環通道", desc: "結束舊有與開啟新局的成長力" },
+  { gates: [47, 64], name: "抽象通道", desc: "在混亂圖像中理出意義的視覺家" }
+];
+
+// --- 八字四柱換算邏輯 (升級版：包含節氣推算與精確日干支) ---
+const calculateBazi = (dateTimeString) => {
+  if (!dateTimeString) return { text: "請輸入日期與時間", pillars: {} };
+  
+  const [datePart, timePart] = dateTimeString.includes('T') ? dateTimeString.split('T') : [dateTimeString, "00:00"];
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour] = timePart.split(':').map(Number);
+  
+  const utcMs = Date.UTC(year, month - 1, day);
+  if (isNaN(utcMs)) return { text: "日期無效", pillars: {} };
+
+  const stems = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
+  const branches = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+
+  // 節氣粗略交接日 (每月1~12月)
+  // 1月小寒, 2月立春, 3月驚蟄, 4月清明, 5月立夏, 6月芒種, 7月小暑, 8月立秋, 9月白露, 10月寒露, 11月立冬, 12月大雪
+  const termDays = [0, 6, 4, 6, 5, 6, 6, 7, 8, 8, 8, 7, 7];
+
+  let solarMonth = month;
+  let solarYear = year;
+
+  // 判斷是否過節氣
+  if (day < termDays[month - 1]) {
+    solarMonth -= 1;
+    if (solarMonth === 0) {
+      solarMonth = 12;
+      solarYear -= 1;
+    }
+  }
+
+  // 八字年份以立春 (2月) 為界
+  let baziYear = year;
+  if (solarMonth === 1 || (solarMonth === 2 && day < termDays[1])) {
+    baziYear -= 1;
+  }
+
+  // 1. 年柱 (以1984甲子年為基準)
+  let yearOffset = (baziYear - 1984) % 60;
+  if (yearOffset < 0) yearOffset += 60;
+  const yearStemIdx = yearOffset % 10;
+  const yearBranchIdx = yearOffset % 12;
+
+  // 2. 月柱 (五虎遁起丙寅)
+  const monthBranchIdx = solarMonth === 12 ? 0 : solarMonth;
+  const monthStemStart = [2, 4, 6, 8, 0][yearStemIdx % 5];
+  // 計算距離寅月(2月)的位移
+  let monthOffset = solarMonth - 2;
+  if (monthOffset < 0) monthOffset += 12;
+  const monthStemIdx = (monthStemStart + monthOffset) % 10;
+
+  // 3. 日柱 (精確計算，以 1970-01-01 辛巳日為基準: stem=7, branch=5)
+  const days = Math.floor(utcMs / 86400000);
+  let dayStemIdx = (days + 7) % 10; 
+  if (dayStemIdx < 0) dayStemIdx += 10;
+  let dayBranchIdx = (days + 5) % 12; 
+  if (dayBranchIdx < 0) dayBranchIdx += 12;
+
+  // 4. 時柱 (五鼠遁)
+  const hourBranchIdx = Math.floor(((hour + 1) % 24) / 2); // 23-1 子時
+  const hourStemStart = [0, 2, 4, 6, 8][dayStemIdx % 5]; 
+  const hourStemIdx = (hourStemStart + hourBranchIdx) % 10;
+
+  const pillars = {
+    year: `${stems[yearStemIdx]}${branches[yearBranchIdx]}`,
+    month: `${stems[monthStemIdx]}${branches[monthBranchIdx]}`,
+    day: `${stems[dayStemIdx]}${branches[dayBranchIdx]}`,
+    hour: `${stems[hourStemIdx]}${branches[hourBranchIdx]}`
+  };
+
+  return {
+    text: `${pillars.year}年 ${pillars.month}月 ${pillars.day}日 ${pillars.hour}時`,
+    pillars
+  };
+};
+
+// --- API 呼叫與重試邏輯 ---
+const fetchWithRetry = async (url, options, maxRetries = 5) => {
+  const delays = [1000, 2000, 4000, 8000, 16000];
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (e) {
+      if (i === maxRetries - 1) throw e;
+      await new Promise(res => setTimeout(res, delays[i]));
+    }
+  }
+};
+
+const generateAIResponse = async (prompt, systemInstruction, apiKey) => {
+  // 將模型更改為普遍支援的公開版本 (gemini-2.5-flash) 以解決 404 找不到模型的錯誤
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    systemInstruction: { parts: [{ text: systemInstruction }] }
+  };
+
+  const result = await fetchWithRetry(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  return result.candidates?.[0]?.content?.parts?.[0]?.text || "無法生成回應，請稍後再試。";
+};
+
+// --- Markdown 轉換工具 ---
+const formatText = (text) => {
+  if (!text) return { __html: '' };
+  let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong class="text-indigo-300">$1</strong>');
+  formatted = formatted.replace(/\*(.*?)\*/g, '<em class="text-indigo-200">$1</em>');
+  return { __html: formatted };
+};
+
+// --- 推薦網站 Tooltip 元件 ---
+const InfoTooltip = ({ title, links }) => (
+  <div className="relative group inline-flex items-center ml-2">
+    <Info className="w-4 h-4 text-slate-500 hover:text-indigo-400 cursor-help transition-colors" />
+    {/* 提示框主體：平時隱藏，滑鼠移入(hover)時顯示 */}
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-slate-800 border border-slate-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none group-hover:pointer-events-auto">
+      <p className="text-xs text-slate-300 font-semibold mb-2">{title}</p>
+      <ul className="space-y-1.5">
+        {links.map((link, idx) => (
+          <li key={idx}>
+            <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline">
+              {link.name}
+            </a>
+          </li>
+        ))}
+      </ul>
+      {/* 提示框下方的倒三角形箭頭 */}
+      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
     </div>
   </div>
+);
 
-  <!-- 頂部導航/標題 -->
-  <header class="bg-slate-900 border-b border-slate-800 p-6 sticky top-0 z-40 shadow-lg">
-    <div class="max-w-6xl mx-auto flex items-center justify-center gap-3">
-      <i data-lucide="sparkles" class="text-indigo-400 w-8 h-8"></i>
-      <h1 class="text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent text-center">
-        誰說五十才知天命：小麥的命理綜合分析系統
-      </h1>
-      <i data-lucide="sparkles" class="text-pink-400 w-8 h-8 hidden md:block"></i>
-    </div>
-    <p class="text-center text-slate-400 mt-2 text-sm max-w-2xl mx-auto">
-      結合人類圖的能量運作、MBTI的心理偏好，與東方八字的先天命理，為您繪製最立體的靈魂藍圖。
-    </p>
-  </header>
+export default function App() {
+  const initialDateTime = '1990-01-01T12:00';
+  const [initialBazi, setInitialBazi] = useState(() => calculateBazi(initialDateTime));
 
-  <main class="max-w-6xl mx-auto p-4 md:p-6 lg:p-8 space-y-8">
-    
-    <!-- 資料輸入區塊 -->
-    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-xl">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-slate-800 pb-4">
-        <div class="flex items-center gap-2">
-          <i data-lucide="user" class="text-indigo-400 w-6 h-6"></i>
-          <h2 class="text-xl font-semibold text-slate-100">輸入您的資料</h2>
-        </div>
-        
-        <!-- 開啟進階閘門分析按鈕 -->
-        <button id="toggle-advanced-btn" class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200">
-          <i data-lucide="settings-2" class="w-4 h-4"></i>
-          <span id="toggle-advanced-text">開啟進階閘門分析</span>
-        </button>
-      </div>
+  // 用戶 API 金鑰狀態 (從 localStorage 初始化)
+  const [userApiKey, setUserApiKey] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('gemini_api_key') || '';
+    }
+    return '';
+  });
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- 性別 -->
-        <div class="space-y-2">
-          <label class="block text-sm font-medium text-slate-400">性別</label>
-          <div class="relative">
-            <select id="input-gender" class="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"></select>
-            <i data-lucide="chevron-down" class="absolute right-3 top-3 text-slate-500 pointer-events-none w-5 h-5"></i>
-          </div>
-        </div>
+  // 當金鑰改變時，儲存到 localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('gemini_api_key', userApiKey);
+    }
+  }, [userApiKey]);
 
-        <!-- MBTI -->
-        <div class="space-y-2">
-          <div class="flex items-center">
-            <label class="block text-sm font-medium text-slate-400">MBTI 人格類型</label>
-            <!-- Tooltip -->
-            <div class="relative group inline-flex items-center ml-2">
-              <i data-lucide="info" class="w-4 h-4 text-slate-500 hover:text-indigo-400 cursor-help transition-colors"></i>
-              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-slate-800 border border-slate-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none group-hover:pointer-events-auto">
-                <p class="text-xs text-slate-300 font-semibold mb-2">尚未測驗？推薦免費測驗網站：</p>
-                <ul class="space-y-1.5">
-                  <li><a href="https://www.16personalities.com/ch" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 hover:underline">1. 16Personalities (最知名中文)</a></li>
-                  <li><a href="https://www.arealme.com/16types/zh/" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 hover:underline">2. Arealme 16型人格測驗</a></li>
-                  <li><a href="https://www.apesk.com/mbti/dati.asp" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 hover:underline">3. 才儲 Apesk (進階版分析)</a></li>
-                </ul>
-                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-              </div>
-            </div>
-          </div>
-          <div class="relative">
-            <select id="input-mbti" class="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"></select>
-            <i data-lucide="chevron-down" class="absolute right-3 top-3 text-slate-500 pointer-events-none w-5 h-5"></i>
-          </div>
-        </div>
+  // 表單狀態
+  const [formData, setFormData] = useState({
+    gender: GENDER_OPTIONS[0],
+    mbti: MBTI_OPTIONS[0],
+    hdType: HD_TYPES[0],
+    hdProfile: HD_PROFILES[0],
+    hdAuthority: HD_AUTHORITIES[0],
+    birthDateTime: initialDateTime,
+    baziInfo: initialBazi,
+    baziExtra: ''
+  });
 
-        <!-- 八字四柱 (自動換算) -->
-        <div class="space-y-2 lg:row-span-2">
-          <label class="block text-sm font-medium text-slate-400">出生日期與時間</label>
-          <input type="datetime-local" id="input-datetime" value="1990-01-01T12:00" class="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition [color-scheme:dark] mb-3"/>
-          
-          <!-- 八字結果呈現區 -->
-          <div class="bg-slate-950/50 border border-slate-800 rounded-xl p-4">
-            <p class="text-xs text-slate-500 mb-3 flex justify-between items-center">
-              <span>八字排盤結果 (已納入節氣)</span>
-              <span class="bg-emerald-900/40 text-emerald-400 px-2 py-0.5 rounded border border-emerald-800/50 text-[10px]">精確度提升</span>
-            </p>
-            <div class="flex justify-between items-center text-center gap-2">
-              <div class="flex-1 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
-                <div class="text-[10px] text-slate-400 mb-1">年柱</div>
-                <div id="bazi-year" class="text-lg font-medium text-amber-200">-</div>
-              </div>
-              <div class="flex-1 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
-                <div class="text-[10px] text-slate-400 mb-1">月柱</div>
-                <div id="bazi-month" class="text-lg font-medium text-amber-200">-</div>
-              </div>
-              <div class="flex-1 bg-indigo-900/30 p-2 rounded-lg border border-indigo-500/30 shadow-inner">
-                <div class="text-[10px] text-indigo-300 mb-1">日柱(日主)</div>
-                <div id="bazi-day" class="text-lg font-medium text-indigo-200">-</div>
-              </div>
-              <div class="flex-1 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
-                <div class="text-[10px] text-slate-400 mb-1">時柱</div>
-                <div id="bazi-hour" class="text-lg font-medium text-amber-200">-</div>
-              </div>
-            </div>
-          </div>
-        </div>
+  // 進階閘門狀態
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selectedGates, setSelectedGates] = useState([]);
 
-        <!-- 人類圖類型 -->
-        <div class="space-y-2">
-          <div class="flex items-center">
-            <label class="block text-sm font-medium text-slate-400">人類圖類型</label>
-            <!-- Tooltip -->
-            <div class="relative group inline-flex items-center ml-2">
-              <i data-lucide="info" class="w-4 h-4 text-slate-500 hover:text-indigo-400 cursor-help transition-colors"></i>
-              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-slate-800 border border-slate-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none group-hover:pointer-events-auto">
-                <p class="text-xs text-slate-300 font-semibold mb-2">尚未排盤？推薦免費排盤網站：</p>
-                <ul class="space-y-1.5">
-                  <li><a href="https://humandesignasia.org/HowToGetYourChart" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 hover:underline">1. 亞洲人類圖學院 (全中文)</a></li>
-                  <li><a href="https://www.jovianarchive.com/Get_Your_Chart" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 hover:underline">2. Jovian Archive (官方正統)</a></li>
-                  <li><a href="https://ch.humandesign.report/" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 hover:underline">3. Human Design Report</a></li>
-                </ul>
-                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-              </div>
-            </div>
-          </div>
-          <div class="relative">
-            <select id="input-hdType" class="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"></select>
-            <i data-lucide="chevron-down" class="absolute right-3 top-3 text-slate-500 pointer-events-none w-5 h-5"></i>
-          </div>
-        </div>
+  // 應用程式狀態
+  const [analysisResult, setAnalysisResult] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(''); 
+  const [error, setError] = useState('');
+  
+  // 提示訊息狀態 (Toast)
+  const [toastMsg, setToastMsg] = useState('');
+  
+  // 聊天室狀態
+  const [chatHistory, setChatHistory] = useState([]);
+  const [currentQuestion, setCurrentQuestion] = useState('');
+  const [isAsking, setIsAsking] = useState(false);
+  const chatEndRef = useRef(null);
 
-        <!-- 人類圖角色 -->
-        <div class="space-y-2">
-          <label class="block text-sm font-medium text-slate-400">人類圖人生角色</label>
-          <div class="relative">
-            <select id="input-hdProfile" class="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"></select>
-            <i data-lucide="chevron-down" class="absolute right-3 top-3 text-slate-500 pointer-events-none w-5 h-5"></i>
-          </div>
-        </div>
+  // 自動計算已啟動的通道
+  const activatedChannels = CHANNELS.filter(
+    channel => selectedGates.includes(channel.gates[0]) && selectedGates.includes(channel.gates[1])
+  );
 
-        <!-- 人類圖權威 -->
-        <div class="space-y-2">
-          <label class="block text-sm font-medium text-slate-400">人類圖內在權威</label>
-          <div class="relative">
-            <select id="input-hdAuthority" class="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"></select>
-            <i data-lucide="chevron-down" class="absolute right-3 top-3 text-slate-500 pointer-events-none w-5 h-5"></i>
-          </div>
-        </div>
+  // 處理 Toast 提示
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 3000);
+  };
 
-        <!-- 其他補充 -->
-        <div class="space-y-2 lg:col-span-2">
-          <label class="block text-sm font-medium text-slate-400">其他補充 (選填，如喜用神、八字格局)</label>
-          <input type="text" id="input-extra" placeholder="例如：喜水木、傷官見官..." class="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition placeholder:text-slate-600"/>
-        </div>
-      </div>
-
-      <!-- 展開式：進階閘門選擇區塊 -->
-      <div id="advanced-section" class="hidden mt-8 pt-6 border-t border-slate-800 transition-all duration-300">
-        <div class="mb-4">
-          <h3 class="text-lg font-medium text-indigo-300">勾選您的啟動閘門 (選填)</h3>
-          <p class="text-sm text-slate-500 mt-1">
-            若您有完整的人類圖，可於此勾選您圖中被圈起的數字（閘門）。系統將自動為您配對出具備完整能量的<strong class="text-pink-400">「通道」</strong>，並交由 AI 進行深層天賦解析。
-          </p>
-        </div>
-        
-        <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
-          <!-- 64閘門按鈕區 -->
-          <div id="gates-grid" class="flex flex-wrap gap-2"></div>
-          
-          <!-- 已選閘門與通道展示區 -->
-          <div id="selected-gates-area" class="hidden mt-4 pt-4 border-t border-slate-800">
-            <div class="flex items-center justify-between mb-3">
-              <p id="selected-gates-count" class="text-sm text-indigo-400"></p>
-              <button id="clear-gates-btn" class="text-xs text-slate-500 hover:text-slate-300 transition-colors">全部清除</button>
-            </div>
-            <div id="selected-gates-list" class="flex flex-wrap gap-2 mb-4"></div>
-
-            <!-- 自動配對之通道展示區 -->
-            <div id="channels-area" class="hidden mt-4 p-4 bg-pink-950/20 border border-pink-900/50 rounded-xl">
-              <p id="channels-count" class="text-sm text-pink-400 font-medium mb-3 flex items-center gap-2">
-                <i data-lucide="sparkles" class="w-4 h-4"></i>
-              </p>
-              <div id="channels-list" class="flex flex-col gap-2"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 送出分析按鈕 -->
-      <div class="mt-8 flex justify-end">
-        <button id="analyze-btn" class="w-full md:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center justify-center gap-1 min-w-[240px]">
-          <div class="flex items-center gap-2">
-            <i data-lucide="loader-2" id="analyze-spinner" class="w-5 h-5 animate-spin hidden"></i>
-            <i data-lucide="star" id="analyze-icon" class="w-5 h-5"></i>
-            <span>生成專屬綜合解析</span>
-          </div>
-          <span id="loading-step" class="text-xs text-indigo-200 font-normal animate-pulse mt-1 hidden"></span>
-        </button>
-      </div>
-      
-      <!-- 錯誤提示 -->
-      <div id="error-alert" class="hidden mt-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg flex items-center gap-2 text-red-400">
-        <i data-lucide="alert-circle" class="w-5 h-5 flex-shrink-0"></i>
-        <p id="error-text" class="text-sm"></p>
-      </div>
-    </section>
-
-    <!-- 分析結果與問答區塊 (初始隱藏) -->
-    <div id="results-section" class="hidden grid-cols-1 lg:grid-cols-5 gap-8 items-start">
-      
-      <!-- 左側：分析報告 -->
-      <section class="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col shadow-xl max-h-[800px]">
-        <div class="flex items-center justify-between p-6 border-b border-slate-800 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
-          <div class="flex items-center gap-2">
-            <i data-lucide="book-open" class="text-pink-400 w-6 h-6"></i>
-            <h2 class="text-xl font-semibold text-slate-100">綜合命理分析報告</h2>
-          </div>
-          <!-- 複製與下載按鈕 -->
-          <div class="flex items-center gap-2">
-            <button id="copy-btn" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition flex items-center gap-1 text-sm" title="複製報告內容">
-              <i data-lucide="copy" class="w-4 h-4"></i> <span class="hidden sm:inline">複製</span>
-            </button>
-            <button id="download-btn" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition flex items-center gap-1 text-sm" title="下載報告文字檔">
-              <i data-lucide="download" class="w-4 h-4"></i> <span class="hidden sm:inline">下載</span>
-            </button>
-          </div>
-        </div>
-        <div id="report-content" class="p-6 md:p-8 overflow-y-auto custom-scrollbar markdown-body text-slate-300 leading-relaxed whitespace-pre-wrap"></div>
-      </section>
-
-      <!-- 右側：專屬顧問 Q&A -->
-      <section class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col shadow-xl h-[600px] lg:h-[800px]">
-        <div class="p-6 border-b border-slate-800 flex items-center gap-2">
-          <i data-lucide="message-circle" class="text-indigo-400 w-6 h-6"></i>
-          <div>
-            <h2 class="text-xl font-semibold text-slate-100">專屬命理顧問</h2>
-            <p class="text-xs text-slate-400">基於您的綜合命盤進行問答</p>
-          </div>
-        </div>
-
-        <!-- 聊天歷史紀錄 -->
-        <div id="chat-container" class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-          <!-- 初始建議區塊 -->
-          <div id="chat-empty-state" class="h-full flex flex-col items-center justify-center text-center text-slate-500 space-y-3">
-            <i data-lucide="sparkles" class="w-10 h-10 opacity-20"></i>
-            <p>報告閱讀完了嗎？<br/>您可以針對職涯、感情或生活方向發問。</p>
-            <div class="flex flex-wrap justify-center gap-2 mt-4">
-              <button class="chat-suggestion-btn text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full transition">我適合什麼樣的工作環境？</button>
-              <button class="chat-suggestion-btn text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full transition">在感情中我容易遇到什麼困難？</button>
-              <button class="chat-suggestion-btn text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full transition">我該如何做重大決定？</button>
-            </div>
-          </div>
-          <!-- 聊天紀錄會插入在這裡 -->
-          <div id="chat-history-list" class="space-y-6 flex flex-col"></div>
-          <!-- 思考中動畫 -->
-          <div id="chat-thinking" class="hidden flex justify-start">
-            <div class="bg-slate-800 border border-slate-700 rounded-2xl rounded-tl-none p-4 flex items-center gap-3">
-              <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-indigo-400"></i>
-              <span class="text-sm text-slate-400">顧問思考中...</span>
-            </div>
-          </div>
-          <div id="chat-end-ref"></div>
-        </div>
-
-        <!-- 聊天輸入框 -->
-        <div class="p-4 border-t border-slate-800 bg-slate-900 rounded-b-2xl">
-          <form id="chat-form" class="relative flex items-center">
-            <input type="text" id="chat-input" placeholder="輸入你想問的問題..." class="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-full pl-5 pr-12 py-3 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition disabled:opacity-50" />
-            <button type="submit" id="chat-submit-btn" disabled class="absolute right-2 p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500 transition">
-              <i data-lucide="send" class="w-4 h-4"></i>
-            </button>
-          </form>
-        </div>
-      </section>
-    </div>
-  </main>
-
-  <script>
-    // --- 資料定義 ---
-    const MBTI_OPTIONS = ["INTJ", "INTP", "ENTJ", "ENTP", "INFJ", "INFP", "ENFJ", "ENFP", "ISTJ", "ISFJ", "ESTJ", "ESFJ", "ISTP", "ISFP", "ESTP", "ESFP"];
-    const HD_TYPES = ["顯示者 (Manifestor)", "生產者 (Generator)", "顯示生產者 (Manifesting Generator)", "投射者 (Projector)", "反映者 (Reflector)"];
-    const HD_PROFILES = ["1/3", "1/4", "2/4", "2/5", "3/5", "3/6", "4/6", "4/1", "5/1", "5/2", "6/2", "6/3"];
-    const HD_AUTHORITIES = ["情緒權威 (Emotional Authority)", "薦骨權威 (Sacral Authority)", "直覺權威 (Splenic Authority)", "意志力權威 (Ego / Heart Authority)", "自我投射型權威 (Self-Projected Authority)", "環境型權威（無內在權威）(Environmental / Mental Authority)", "月亮權威 (Lunar Authority)"];
-    const GENDER_OPTIONS = ["男", "女", "其他"];
-
-    const ALL_GATES = Array.from({ length: 64 }, (_, i) => i + 1);
-    const GATE_NAMES = {
-      1: "創意/自我表達", 2: "接受/方向", 3: "秩序/釐清", 4: "公式化/解答", 5: "固定節奏/等待",
-      6: "摩擦/衝突", 7: "角色/引領", 8: "貢獻/團結", 9: "專注/細節", 10: "行為/愛自己",
-      11: "概念/想法", 12: "謹慎/停頓", 13: "聆聽/同理", 14: "權力技能/財富", 15: "極端/多元",
-      16: "技能/熱忱", 17: "意見/邏輯", 18: "修正/完美", 19: "需求/敏感", 20: "當下/覺察",
-      21: "獵人/掌控", 22: "優雅/情感", 23: "同化/剝落", 24: "合理化/回歸", 25: "宇宙之愛/天真",
-      26: "利己主義/行銷", 27: "照顧/滋養", 28: "玩家/冒險", 29: "承諾/深淵", 30: "感覺/慾望之火",
-      31: "領導/影響力", 32: "連續/延續", 33: "隱私/退隱", 34: "力量/偉大", 35: "改變/進展",
-      36: "危機/暗晦", 37: "家庭/友誼", 38: "戰士/抗爭", 39: "挑釁/阻礙", 40: "孤獨/解脫",
-      41: "收縮/幻想", 42: "成長/增加", 43: "洞見/突破", 44: "警覺/模式", 45: "聚集者/統治",
-      46: "決心/身體之愛", 47: "壓迫/領悟", 48: "深度/井", 49: "原則/革命", 50: "價值/鼎",
-      51: "震驚/喚醒", 52: "靜止/保持不動", 53: "開始/發展", 54: "野心/少女", 55: "精神/豐盛",
-      56: "刺激/流浪者", 57: "直覺/溫和", 58: "活力/喜悅", 59: "親密/散發", 60: "限制/接受",
-      61: "神秘/內在真理", 62: "細節/表達", 63: "懷疑/完成", 64: "困惑/未完成"
-    };
-
-    const CHANNELS = [
-      { gates: [1, 8], name: "靈感通道", desc: "充滿創造力與自我表達" },
-      { gates: [2, 14], name: "煉金術通道", desc: "掌管財富與人生方向的跳動" },
-      { gates: [3, 60], name: "突變通道", desc: "帶來創新與跨越限制的能量" },
-      { gates: [4, 63], name: "邏輯通道", desc: "懷疑與尋求解答的科學腦" },
-      { gates: [5, 15], name: "韻律通道", desc: "順應自然與生命節奏" },
-      { gates: [6, 59], name: "親密通道", desc: "打破藩籬建立深刻連結" },
-      { gates: [7, 31], name: "創造領袖通道", desc: "被眾人推舉的未來指引者" },
-      { gates: [9, 52], name: "專注通道", desc: "靜止並聚焦於細節的力量" },
-      { gates: [10, 20], name: "覺醒通道", desc: "在當下展現對生命的熱愛" },
-      { gates: [10, 34], name: "探索通道", desc: "遵循信念的強大個體力量" },
-      { gates: [10, 57], name: "完美形式通道", desc: "直覺引導的求生與美感" },
-      { gates: [11, 56], name: "好奇通道", desc: "尋找並分享概念的說書人" },
-      { gates: [12, 22], name: "開放通道", desc: "帶有情緒深度的優雅表達" },
-      { gates: [13, 33], name: "浪子通道", desc: "收集秘密並見證歷史的紀錄者" },
-      { gates: [16, 48], name: "波長/才華通道", desc: "對完美技能與深度的渴望" },
-      { gates: [17, 62], name: "接受通道", desc: "組織意見與細節的管理者" },
-      { gates: [18, 58], name: "批評通道", desc: "渴望完美與修正錯誤的活力" },
-      { gates: [19, 49], name: "整合通道", desc: "敏感於需求與資源分配的革命者" },
-      { gates: [20, 34], name: "魅力通道", desc: "將強大能量化為當下行動" },
-      { gates: [20, 57], name: "腦波通道", desc: "電光石火間的直覺覺知" },
-      { gates: [21, 45], name: "金錢通道", desc: "掌控物質與資源的統治者" },
-      { gates: [23, 43], name: "結構通道", desc: "將獨特洞見化為語言的天才" },
-      { gates: [24, 61], name: "意識通道", desc: "探索未知奧秘的思想家" },
-      { gates: [25, 51], name: "發起通道", desc: "躍入未知競爭的勇敢先鋒" },
-      { gates: [26, 44], name: "投降通道", desc: "運用本能進行說服與行銷" },
-      { gates: [27, 50], name: "保存通道", desc: "守護價值觀與照顧他人的本能" },
-      { gates: [28, 38], name: "掙扎通道", desc: "尋求生命意義的頑強戰士" },
-      { gates: [29, 46], name: "發現通道", desc: "全然投入體驗並發現成功的幸運兒" },
-      { gates: [30, 41], name: "夢想通道", desc: "體驗強烈情感與渴望的幻想家" },
-      { gates: [32, 54], name: "轉化通道", desc: "具備物質野心與長遠眼光的驅力" },
-      { gates: [34, 57], name: "力量通道", desc: "直覺結合力量的獨立求生者" },
-      { gates: [35, 36], name: "無常通道", desc: "在情感危機中體驗生命的冒險家" },
-      { gates: [37, 40], name: "經營通道", desc: "建立契約與重視家族連結" },
-      { gates: [39, 55], name: "情感通道", desc: "在情緒波動中尋求精神豐盛" },
-      { gates: [42, 53], name: "循環通道", desc: "結束舊有與開啟新局的成長力" },
-      { gates: [47, 64], name: "抽象通道", desc: "在混亂圖像中理出意義的視覺家" }
-    ];
-
-    // --- 八字計算邏輯 ---
-    const calculateBazi = (dateTimeString) => {
-      if (!dateTimeString) return { text: "請輸入日期與時間", pillars: {} };
-      
-      const parts = dateTimeString.includes('T') ? dateTimeString.split('T') : [dateTimeString, "00:00"];
-      const datePart = parts[0];
-      const timePart = parts[1];
-      const [year, month, day] = datePart.split('-').map(Number);
-      const [hour] = timePart.split(':').map(Number);
-      
-      const utcMs = Date.UTC(year, month - 1, day);
-      if (isNaN(utcMs)) return { text: "日期無效", pillars: {} };
-
-      const stems = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
-      const branches = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
-
-      const termDays = [0, 6, 4, 6, 5, 6, 6, 7, 8, 8, 8, 7, 7];
-      let solarMonth = month;
-      let solarYear = year;
-
-      if (day < termDays[month - 1]) {
-        solarMonth -= 1;
-        if (solarMonth === 0) {
-          solarMonth = 12;
-          solarYear -= 1;
-        }
+  // 處理輸入變更
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value };
+      if (name === 'birthDateTime') {
+        newData.baziInfo = calculateBazi(value);
       }
-
-      let baziYear = year;
-      if (solarMonth === 1 || (solarMonth === 2 && day < termDays[1])) {
-        baziYear -= 1;
-      }
-
-      let yearOffset = (baziYear - 1984) % 60;
-      if (yearOffset < 0) yearOffset += 60;
-      const yearStemIdx = yearOffset % 10;
-      const yearBranchIdx = yearOffset % 12;
-
-      const monthBranchIdx = solarMonth === 12 ? 0 : solarMonth;
-      const monthStemStart = [2, 4, 6, 8, 0][yearStemIdx % 5];
-      let monthOffset = solarMonth - 2;
-      if (monthOffset < 0) monthOffset += 12;
-      const monthStemIdx = (monthStemStart + monthOffset) % 10;
-
-      const days = Math.floor(utcMs / 86400000);
-      let dayStemIdx = (days + 7) % 10; 
-      if (dayStemIdx < 0) dayStemIdx += 10;
-      let dayBranchIdx = (days + 5) % 12; 
-      if (dayBranchIdx < 0) dayBranchIdx += 12;
-
-      const hourBranchIdx = Math.floor(((hour + 1) % 24) / 2);
-      const hourStemStart = [0, 2, 4, 6, 8][dayStemIdx % 5]; 
-      const hourStemIdx = (hourStemStart + hourBranchIdx) % 10;
-
-      const pillars = {
-        year: `${stems[yearStemIdx]}${branches[yearBranchIdx]}`,
-        month: `${stems[monthStemIdx]}${branches[monthBranchIdx]}`,
-        day: `${stems[dayStemIdx]}${branches[dayBranchIdx]}`,
-        hour: `${stems[hourStemIdx]}${branches[hourBranchIdx]}`
-      };
-
-      return {
-        text: `${pillars.year}年 ${pillars.month}月 ${pillars.day}日 ${pillars.hour}時`,
-        pillars
-      };
-    };
-
-    // --- 狀態變數 ---
-    let formData = {
-      gender: GENDER_OPTIONS[0],
-      mbti: MBTI_OPTIONS[0],
-      hdType: HD_TYPES[0],
-      hdProfile: HD_PROFILES[0],
-      hdAuthority: HD_AUTHORITIES[0],
-      birthDateTime: '1990-01-01T12:00',
-      baziInfo: calculateBazi('1990-01-01T12:00'),
-      baziExtra: ''
-    };
-    let showAdvanced = false;
-    let selectedGates = [];
-    let analysisResult = '';
-    let isAnalyzing = false;
-    let isAsking = false;
-
-    // --- API 呼叫 ---
-    const apiKey = ""; 
-
-    const fetchWithRetry = async (url, options, maxRetries = 5) => {
-      const delays = [1000, 2000, 4000, 8000, 16000];
-      for (let i = 0; i < maxRetries; i++) {
-        try {
-          const response = await fetch(url, options);
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          return await response.json();
-        } catch (e) {
-          if (i === maxRetries - 1) throw e;
-          await new Promise(res => setTimeout(res, delays[i]));
-        }
-      }
-    };
-
-    const generateAIResponse = async (prompt, systemInstruction) => {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-      const payload = {
-        contents: [{ parts: [{ text: prompt }] }],
-        systemInstruction: { parts: [{ text: systemInstruction }] }
-      };
-
-      const result = await fetchWithRetry(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      return result.candidates?.[0]?.content?.parts?.[0]?.text || "無法生成回應，請稍後再試。";
-    };
-
-    // --- Markdown 簡單渲染 ---
-    const formatText = (text) => {
-      if (!text) return '';
-      let formatted = text
-        .replace(/</g, "&lt;").replace(/>/g, "&gt;") // 簡單的 XSS 防護
-        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-indigo-300">$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em class="text-indigo-200">$1</em>')
-        .replace(/\n/g, '<br/>');
-      return formatted;
-    };
-
-    // --- DOM 初始化與事件綁定 ---
-    document.addEventListener('DOMContentLoaded', () => {
-      lucide.createIcons();
-      initSelectOptions();
-      updateBaziDisplay();
-      renderGatesGrid();
-
-      // 綁定輸入變更
-      ['gender', 'mbti', 'hdType', 'hdProfile', 'hdAuthority', 'extra'].forEach(id => {
-        const el = document.getElementById(`input-${id}`);
-        if(el) el.addEventListener('change', (e) => formData[id === 'extra' ? 'baziExtra' : id] = e.target.value);
-      });
-
-      document.getElementById('input-datetime').addEventListener('change', (e) => {
-        formData.birthDateTime = e.target.value;
-        formData.baziInfo = calculateBazi(e.target.value);
-        updateBaziDisplay();
-      });
-
-      // 進階按鈕切換
-      document.getElementById('toggle-advanced-btn').addEventListener('click', () => {
-        showAdvanced = !showAdvanced;
-        document.getElementById('advanced-section').classList.toggle('hidden', !showAdvanced);
-        const btn = document.getElementById('toggle-advanced-btn');
-        const txt = document.getElementById('toggle-advanced-text');
-        if (showAdvanced) {
-          btn.classList.replace('bg-slate-800', 'bg-indigo-600/20');
-          btn.classList.replace('border-slate-700', 'border-indigo-500/50');
-          btn.classList.replace('text-slate-400', 'text-indigo-300');
-          txt.textContent = '隱藏進階閘門';
-        } else {
-          btn.classList.replace('bg-indigo-600/20', 'bg-slate-800');
-          btn.classList.replace('border-indigo-500/50', 'border-slate-700');
-          btn.classList.replace('text-indigo-300', 'text-slate-400');
-          txt.textContent = '開啟進階閘門分析';
-        }
-      });
-
-      // 清除全部閘門
-      document.getElementById('clear-gates-btn').addEventListener('click', () => {
-        selectedGates = [];
-        renderGatesGrid();
-        renderSelectedGates();
-      });
-
-      // 分析按鈕
-      document.getElementById('analyze-btn').addEventListener('click', handleAnalyze);
-
-      // 聊天相關
-      const chatInput = document.getElementById('chat-input');
-      const chatSubmitBtn = document.getElementById('chat-submit-btn');
-      
-      chatInput.addEventListener('input', (e) => {
-        chatSubmitBtn.disabled = isAsking || !e.target.value.trim();
-      });
-
-      document.getElementById('chat-form').addEventListener('submit', handleAsk);
-
-      document.querySelectorAll('.chat-suggestion-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          chatInput.value = e.target.textContent;
-          chatSubmitBtn.disabled = false;
-        });
-      });
-
-      // 複製/下載
-      document.getElementById('copy-btn').addEventListener('click', () => {
-        if (!analysisResult) return;
-        const textarea = document.createElement('textarea');
-        textarea.value = analysisResult;
-        document.body.appendChild(textarea);
-        textarea.select();
-        try { document.execCommand('copy'); showToast('報告已成功複製到剪貼簿！'); } 
-        catch (err) { showToast('複製失敗，請手動選取複製。'); }
-        document.body.removeChild(textarea);
-      });
-
-      document.getElementById('download-btn').addEventListener('click', () => {
-        if (!analysisResult) return;
-        const blob = new Blob([analysisResult], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `命理綜合分析報告_${new Date().getTime()}.txt`;
-        link.click();
-        URL.revokeObjectURL(url);
-        showToast('報告已開始下載！');
-      });
+      return newData;
     });
+  };
 
-    // --- UI 更新函數 ---
-    function initSelectOptions() {
-      const populate = (id, options) => {
-        const select = document.getElementById(id);
-        options.forEach(opt => {
-          const el = document.createElement('option');
-          el.value = opt;
-          el.textContent = opt;
-          select.appendChild(el);
-        });
-      };
-      populate('input-gender', GENDER_OPTIONS);
-      populate('input-mbti', MBTI_OPTIONS);
-      populate('input-hdType', HD_TYPES);
-      populate('input-hdProfile', HD_PROFILES);
-      populate('input-hdAuthority', HD_AUTHORITIES);
+  // 切換閘門選擇
+  const toggleGate = (gate) => {
+    setSelectedGates(prev => 
+      prev.includes(gate) ? prev.filter(g => g !== gate) : [...prev, gate]
+    );
+  };
+
+  // 滾動到最新訊息
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatHistory]);
+
+  // 複製報告
+  const handleCopy = () => {
+    if (!analysisResult) return;
+    const textarea = document.createElement('textarea');
+    textarea.value = analysisResult;
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      showToast('報告已成功複製到剪貼簿！');
+    } catch (err) {
+      showToast('複製失敗，請手動選取複製。');
+    }
+    document.body.removeChild(textarea);
+  };
+
+  // 下載報告
+  const handleDownload = () => {
+    if (!analysisResult) return;
+    const blob = new Blob([analysisResult], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `命理綜合分析報告_${new Date().getTime()}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('報告已開始下載！');
+  };
+
+  // 執行綜合分析
+  const handleAnalyze = async () => {
+    if (!userApiKey.trim()) {
+      setError('請先在設定區塊輸入您的 Gemini API 金鑰。');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
     }
 
-    function updateBaziDisplay() {
-      const p = formData.baziInfo.pillars;
-      document.getElementById('bazi-year').textContent = p.year || '-';
-      document.getElementById('bazi-month').textContent = p.month || '-';
-      document.getElementById('bazi-day').textContent = p.day || '-';
-      document.getElementById('bazi-hour').textContent = p.hour || '-';
-    }
+    setIsAnalyzing(true);
+    setError('');
+    setAnalysisResult('');
+    setChatHistory([]);
 
-    function renderGatesGrid() {
-      const grid = document.getElementById('gates-grid');
-      grid.innerHTML = '';
-      ALL_GATES.forEach(gate => {
-        const isSelected = selectedGates.includes(gate);
-        const btn = document.createElement('button');
-        btn.textContent = gate;
-        btn.title = `${gate} - ${GATE_NAMES[gate]}`;
-        btn.className = `w-10 h-10 rounded-full text-sm font-medium transition-all ${
-          isSelected 
-            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
-            : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'
-        }`;
-        btn.onclick = () => {
-          if (isSelected) selectedGates = selectedGates.filter(g => g !== gate);
-          else selectedGates.push(gate);
-          renderGatesGrid();
-          renderSelectedGates();
-        };
-        grid.appendChild(btn);
-      });
-    }
+    try {
+      // 模擬知識庫檢索流程
+      setLoadingStep('啟動 NotebookLM 專業知識庫檢索...');
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      setLoadingStep('比對八字十神、合化刑衝與流年理論...');
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-    function renderSelectedGates() {
-      const area = document.getElementById('selected-gates-area');
-      const list = document.getElementById('selected-gates-list');
-      const count = document.getElementById('selected-gates-count');
-      
-      if (selectedGates.length === 0) {
-        area.classList.add('hidden');
-        return;
-      }
-      
-      area.classList.remove('hidden');
-      count.textContent = `已啟動 ${selectedGates.length} 個閘門`;
-      list.innerHTML = '';
-      
-      [...selectedGates].sort((a,b) => a-b).forEach(gate => {
-        const span = document.createElement('span');
-        span.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-900/40 text-indigo-200 text-xs border border-indigo-700/50";
-        span.innerHTML = `<span class="font-bold text-indigo-300">${gate}</span><span class="opacity-90">${GATE_NAMES[gate]}</span>`;
-        list.appendChild(span);
-      });
+      setLoadingStep('載入人類圖能量中心、閘門與去制約法則...');
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-      renderMatchedChannels();
-    }
+      setLoadingStep('分析 MBTI 八大認知功能與動態發展...');
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-    function renderMatchedChannels() {
-      const activatedChannels = CHANNELS.filter(c => selectedGates.includes(c.gates[0]) && selectedGates.includes(c.gates[1]));
-      const area = document.getElementById('channels-area');
-      const list = document.getElementById('channels-list');
-      const countP = document.getElementById('channels-count');
-      
-      if (activatedChannels.length === 0) {
-        area.classList.add('hidden');
-        return;
-      }
-      
-      area.classList.remove('hidden');
-      countP.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i> 系統已為您配對出 ${activatedChannels.length} 條完整通道：`;
-      lucide.createIcons(); // 重新渲染新插入的 icon
-      
-      list.innerHTML = '';
-      activatedChannels.forEach(c => {
-        const div = document.createElement('div');
-        div.className = "bg-slate-900/80 border border-pink-800/30 rounded-lg p-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-4";
-        div.innerHTML = `
-          <span class="bg-pink-600/20 text-pink-300 font-bold px-3 py-1 rounded-md text-sm border border-pink-500/20 whitespace-nowrap w-fit">
-            ${c.gates[0]} - ${c.gates[1]} 通道
-          </span>
-          <div class="flex flex-col">
-            <span class="text-pink-200 text-sm font-medium">${c.name}</span>
-            <span class="text-slate-400 text-xs">${c.desc}</span>
-          </div>
-        `;
-        list.appendChild(div);
-      });
-    }
+      setLoadingStep('星盤與矩陣運算中，生成綜合報告...');
 
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      document.getElementById('toast-msg').textContent = msg;
-      toast.classList.remove('opacity-0', 'invisible', 'translate-y-[-1rem]');
-      toast.classList.add('opacity-100', 'translate-y-0');
-      
-      setTimeout(() => {
-        toast.classList.remove('opacity-100', 'translate-y-0');
-        toast.classList.add('opacity-0', 'invisible', 'translate-y-[-1rem]');
-      }, 3000);
-    }
-
-    // --- 分析流程 ---
-    async function handleAnalyze() {
-      const btn = document.getElementById('analyze-btn');
-      const spinner = document.getElementById('analyze-spinner');
-      const icon = document.getElementById('analyze-icon');
-      const stepTxt = document.getElementById('loading-step');
-      const errorAlert = document.getElementById('error-alert');
-      const errorTxt = document.getElementById('error-text');
-      
-      isAnalyzing = true;
-      btn.disabled = true;
-      spinner.classList.remove('hidden');
-      icon.classList.add('hidden');
-      stepTxt.classList.remove('hidden');
-      errorAlert.classList.add('hidden');
-      
-      document.getElementById('results-section').classList.add('hidden');
-      document.getElementById('report-content').innerHTML = '';
-      document.getElementById('chat-history-list').innerHTML = '';
-      document.getElementById('chat-empty-state').classList.remove('hidden');
-
-      try {
-        const steps = [
-          '啟動 NotebookLM 專業知識庫檢索...',
-          '比對八字十神、合化刑衝與流年理論...',
-          '載入人類圖能量中心、閘門與去制約法則...',
-          '分析 MBTI 八大認知功能與動態發展...',
-          '星盤與矩陣運算中，生成綜合報告...'
-        ];
-        
-        for(let s of steps) {
-          stepTxt.textContent = s;
-          await new Promise(r => setTimeout(r, 800));
-        }
-
-        const activatedChannels = CHANNELS.filter(c => selectedGates.includes(c.gates[0]) && selectedGates.includes(c.gates[1]));
-        const systemInstruction = `你是一位頂級的「全方位命理與心理學綜合大師」。你的解析必須具備極高的專業度，請嚴格基於以下專業知識庫的深度進行推演：
+      const systemInstruction = `你是一位頂級的「全方位命理與心理學綜合大師」。你的解析必須具備極高的專業度，請嚴格基於以下專業知識庫的深度進行推演：
 1. **八字命理**：不只看表面五行，須帶入「日主強弱判斷」、「十神心性與生剋制化」、「干支六合三合刑衝破害」、「大運流年與本命的伏吟反吟」等進階子平法理論。
 2. **人類圖 (Human Design)**：嚴格遵循 Ra Uru Hu 的區分科學。解析須包含「九大能量中心的定義與空白(非自己制約)」、「四大類型的專屬策略與光暈(Aura)特性」、「內在權威的運作機制」，以及若有提供的「特定閘門/通道的天賦化學反應」。
 3. **MBTI 十六型人格**：超越簡單的四字母刻板印象，必須運用榮格心理學的「八大認知功能 (Dominant, Auxiliary, Tertiary, Inferior Functions，如 Ni, Te, Fi, Se)」，分析其心理動力、壓力狀態(Grip/Loop)及成長路徑。
 
 你的語氣客觀、溫暖、具有啟發性。任務是將這三種系統的深層資訊進行「交叉比對與揉合」，找出共鳴點與互補之處，給予使用者具體、有建設性且符合專業學理的人生建議。`;
 
-        let gatesContext = '';
-        if (selectedGates.length > 0) gatesContext += `\n- 人類圖啟動閘門：${selectedGates.sort((a,b)=>a-b).map(g => `${g} (${GATE_NAMES[g]})`).join(', ')}`;
-        if (activatedChannels.length > 0) gatesContext += `\n- 人類圖啟動通道：${activatedChannels.map(c => `${c.gates[0]}-${c.gates[1]} ${c.name}`).join(', ')}`;
-        if (gatesContext) gatesContext += ` (請針對這些閘門與通道的易經天賦特質進行更深入的解析)`;
+      let gatesContext = '';
+      if (selectedGates.length > 0) {
+        gatesContext += `\n- 人類圖啟動閘門：${selectedGates.sort((a,b)=>a-b).map(g => `${g} (${GATE_NAMES[g]})`).join(', ')}`;
+      }
+      if (activatedChannels.length > 0) {
+        gatesContext += `\n- 人類圖啟動通道：${activatedChannels.map(c => `${c.gates[0]}-${c.gates[1]} ${c.name}`).join(', ')}`;
+      }
+      if (gatesContext) {
+        gatesContext += ` (請針對這些閘門與通道的易經天賦特質進行更深入的解析)`;
+      }
 
-        const prompt = `請為我進行一份深度的個人命理綜合解析。以下是我的資料：
+      const prompt = `請為我進行一份深度的個人命理綜合解析。以下是我的資料：
 - 性別：${formData.gender}
 - 出生日期與時間：${formData.birthDateTime.replace('T', ' ')}
 - MBTI 人格：${formData.mbti}
@@ -773,76 +399,36 @@
 3. **陰影面與非自己制約 (盲點與挑戰)**：在能量運作或性格上，我有什麼需要注意的矛盾？(例如：空白能量中心的制約、MBTI第四功能的壓力爆發、八字的五行失衡或相衝)。
 4. **專屬人生與決策策略 (行動指南)**：結合人類圖的「策略與權威」、MBTI的「心智發展方向」，以及八字的「通關用神與平衡之道」，給予我具體的生活、職涯或感情建議。`;
 
-        analysisResult = await generateAIResponse(prompt, systemInstruction);
-        
-        document.getElementById('report-content').innerHTML = formatText(analysisResult);
-        document.getElementById('results-section').classList.remove('hidden');
-        document.getElementById('results-section').classList.add('grid');
-        
-        // 捲動到結果區
-        document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const result = await generateAIResponse(prompt, systemInstruction, userApiKey);
+      setAnalysisResult(result);
+    } catch (err) {
+      console.error(err);
+      setError('分析過程中發生錯誤，請確認您的 API 金鑰是否正確，或檢查網路連線。');
+    } finally {
+      setIsAnalyzing(false);
+      setLoadingStep('');
+    }
+  };
 
-      } catch (err) {
-        console.error(err);
-        errorTxt.textContent = '分析過程中發生錯誤，請檢查網路連線或稍後再試。';
-        errorAlert.classList.remove('hidden');
-      } finally {
-        isAnalyzing = false;
-        btn.disabled = false;
-        spinner.classList.add('hidden');
-        icon.classList.remove('hidden');
-        stepTxt.classList.add('hidden');
-      }
+  // 處理提問
+  const handleAsk = async (e) => {
+    e.preventDefault();
+    if (!currentQuestion.trim() || isAsking || !analysisResult) return;
+
+    if (!userApiKey.trim()) {
+      setChatHistory(prev => [...prev, { role: 'ai', content: "⚠️ 請先在頁面頂端設定您的 Gemini API 金鑰才能進行發問喔！" }]);
+      return;
     }
 
-    // --- 聊天流程 ---
-    function appendChatMessage(role, content) {
-      const list = document.getElementById('chat-history-list');
-      document.getElementById('chat-empty-state').classList.add('hidden');
-      
-      const div = document.createElement('div');
-      div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
-      
-      const bubble = document.createElement('div');
-      bubble.className = `max-w-[85%] rounded-2xl p-4 ${
-        role === 'user' 
-          ? 'bg-indigo-600 text-white rounded-tr-none' 
-          : 'bg-slate-800 border border-slate-700 text-slate-200 rounded-tl-none'
-      }`;
-      
-      if (role === 'ai') {
-        bubble.innerHTML = `<div class="whitespace-pre-wrap text-sm leading-relaxed markdown-body">${formatText(content)}</div>`;
-      } else {
-        bubble.innerHTML = `<p class="text-sm">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`;
-      }
-      
-      div.appendChild(bubble);
-      list.appendChild(div);
-      
-      document.getElementById('chat-end-ref').scrollIntoView({ behavior: 'smooth' });
-    }
+    const userQuestion = currentQuestion.trim();
+    setCurrentQuestion('');
+    setChatHistory(prev => [...prev, { role: 'user', content: userQuestion }]);
+    setIsAsking(true);
 
-    async function handleAsk(e) {
-      e.preventDefault();
-      const input = document.getElementById('chat-input');
-      const val = input.value.trim();
-      const btn = document.getElementById('chat-submit-btn');
-      
-      if (!val || isAsking || !analysisResult) return;
-
-      input.value = '';
-      btn.disabled = true;
-      input.disabled = true;
-      isAsking = true;
-      
-      appendChatMessage('user', val);
-      document.getElementById('chat-thinking').classList.remove('hidden');
-      document.getElementById('chat-end-ref').scrollIntoView({ behavior: 'smooth' });
-
-      const systemInstruction = `你是一位全方位命理與心理學綜合大師。你需要根據使用者的命理資料與先前的綜合分析報告來回答他們的問題。
+    const systemInstruction = `你是一位全方位命理與心理學綜合大師。你需要根據使用者的命理資料與先前的綜合分析報告來回答他們的問題。
 請確保你的回答融合了他們 MBTI(認知功能)、人類圖(能量中心與閘門)與八字(十神與五行)的專業特質，給予量身打造、具體且實用的建議。不要給出空泛的答案。`;
 
-      const prompt = `這是我的命理資料：
+    const prompt = `這是我的命理資料：
 - MBTI：${formData.mbti}
 - 人類圖：${formData.hdType}, ${formData.hdProfile}, 權威:${formData.hdAuthority}
 ${selectedGates.length > 0 ? `- 啟動閘門：${selectedGates.join(', ')}` : ''}
@@ -851,23 +437,479 @@ ${selectedGates.length > 0 ? `- 啟動閘門：${selectedGates.join(', ')}` : ''
 我之前得到的綜合分析重點如下（供你參考背景）：
 ${analysisResult.substring(0, 1000)}...
 
-我的問題是：「${val}」
+我的問題是：「${userQuestion}」
 請用客觀、溫暖且專業的語氣回答我，並指出這個答案是如何從我的命理組合中推導出來的。`;
 
-      try {
-        const result = await generateAIResponse(prompt, systemInstruction);
-        document.getElementById('chat-thinking').classList.add('hidden');
-        appendChatMessage('ai', result);
-      } catch (err) {
-        console.error(err);
-        document.getElementById('chat-thinking').classList.add('hidden');
-        appendChatMessage('ai', "抱歉，我現在無法回答這個問題，請稍後再試一次。");
-      } finally {
-        isAsking = false;
-        input.disabled = false;
-        input.focus();
-      }
+    try {
+      const result = await generateAIResponse(prompt, systemInstruction, userApiKey);
+      setChatHistory(prev => [...prev, { role: 'ai', content: result }]);
+    } catch (err) {
+      console.error(err);
+      setChatHistory(prev => [...prev, { role: 'ai', content: "抱歉，分析過程中發生錯誤，請確認 API 金鑰是否正確或稍後再試。" }]);
+    } finally {
+      setIsAsking(false);
     }
-  </script>
-</body>
-</html>
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30 pb-20">
+      
+      {/* Toast 提示元件 */}
+      {toastMsg && (
+        <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4">
+          <div className="bg-emerald-600 text-white px-6 py-3 rounded-full shadow-lg shadow-emerald-900/20 flex items-center gap-2">
+            <Check className="w-5 h-5" />
+            <span className="font-medium">{toastMsg}</span>
+          </div>
+        </div>
+      )}
+
+      {/* 頂部導航/標題 */}
+      <header className="bg-slate-900 border-b border-slate-800 p-6 sticky top-0 z-40 shadow-lg">
+        <div className="max-w-6xl mx-auto flex items-center justify-center gap-3">
+          <Sparkles className="text-indigo-400 w-8 h-8" />
+          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent text-center">
+            誰說五十才知天命：小麥的命理綜合分析系統
+          </h1>
+          <Sparkles className="text-pink-400 w-8 h-8 hidden md:block" />
+        </div>
+        <p className="text-center text-slate-400 mt-2 text-sm max-w-2xl mx-auto">
+          結合人類圖的能量運作、MBTI的心理偏好，與東方八字的先天命理，為您繪製最立體的靈魂藍圖。
+        </p>
+      </header>
+
+      <main className="max-w-6xl mx-auto p-4 md:p-6 lg:p-8 space-y-8">
+        
+        {/* 資料與系統設定區塊 */}
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-xl">
+          
+          {/* API 金鑰輸入區 (僅本地儲存) */}
+          <div className="mb-8 p-5 bg-indigo-950/20 border border-indigo-500/30 rounded-xl space-y-3">
+            <div className="flex items-center gap-2 text-indigo-300">
+              <Key className="w-5 h-5" />
+              <h3 className="font-medium">系統設定：Gemini API 金鑰</h3>
+            </div>
+            <p className="text-xs text-slate-400">
+              由於此網頁託管於靜態伺服器 (如 GitHub Pages)，需要您提供自己的 Gemini API 金鑰才能執行 AI 運算。
+              您的金鑰<strong className="text-indigo-300">僅會安全地儲存於您個人的瀏覽器中</strong>，不會外洩。
+            </p>
+            <input
+              type="password"
+              value={userApiKey}
+              onChange={(e) => setUserApiKey(e.target.value)}
+              placeholder="請輸入以 AIzaSy 開頭的 Gemini API 金鑰..."
+              className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+            />
+            <p className="text-xs text-slate-500">
+              💡 若無金鑰，請前往 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 underline">Google AI Studio</a> 免費申請。
+            </p>
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-slate-800 pb-4">
+            <div className="flex items-center gap-2">
+              <User className="text-indigo-400 w-6 h-6" />
+              <h2 className="text-xl font-semibold text-slate-100">輸入您的資料</h2>
+            </div>
+            
+            {/* 開啟進階閘門分析按鈕 */}
+            <button 
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                showAdvanced 
+                  ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300' 
+                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+              }`}
+            >
+              <Settings2 className="w-4 h-4" />
+              {showAdvanced ? '隱藏進階閘門' : '開啟進階閘門分析'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* 性別 */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-slate-400">性別</label>
+              <div className="relative">
+                <select 
+                  name="gender" 
+                  value={formData.gender} 
+                  onChange={handleInputChange}
+                  className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                >
+                  {GENDER_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+                <ChevronDown className="absolute right-3 top-3 text-slate-500 pointer-events-none w-5 h-5" />
+              </div>
+            </div>
+
+            {/* MBTI */}
+            <div className="space-y-2">
+              <div className="flex items-center">
+                <label className="block text-sm font-medium text-slate-400">MBTI 人格類型</label>
+                <InfoTooltip 
+                  title="尚未測驗？推薦免費測驗網站：" 
+                  links={[
+                    { name: "1. 16Personalities (最知名中文)", url: "https://www.16personalities.com/ch" },
+                    { name: "2. Arealme 16型人格測驗", url: "https://www.arealme.com/16types/zh/" },
+                    { name: "3. 才儲 Apesk (進階版分析)", url: "https://www.apesk.com/mbti/dati.asp" }
+                  ]}
+                />
+              </div>
+              <div className="relative">
+                <select 
+                  name="mbti" 
+                  value={formData.mbti} 
+                  onChange={handleInputChange}
+                  className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                >
+                  {MBTI_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+                <ChevronDown className="absolute right-3 top-3 text-slate-500 pointer-events-none w-5 h-5" />
+              </div>
+            </div>
+
+            {/* 八字四柱 (自動換算) */}
+            <div className="space-y-2 lg:row-span-2">
+              <label className="block text-sm font-medium text-slate-400">出生日期與時間</label>
+              <input 
+                type="datetime-local" 
+                name="birthDateTime" 
+                value={formData.birthDateTime} 
+                onChange={handleInputChange}
+                className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition [color-scheme:dark] mb-3"
+              />
+              
+              {/* 八字結果呈現區 */}
+              <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-4">
+                <p className="text-xs text-slate-500 mb-3 flex justify-between items-center">
+                  <span>八字排盤結果 (已納入節氣)</span>
+                  <span className="bg-emerald-900/40 text-emerald-400 px-2 py-0.5 rounded border border-emerald-800/50 text-[10px]">精確度提升</span>
+                </p>
+                <div className="flex justify-between items-center text-center gap-2">
+                  <div className="flex-1 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+                    <div className="text-[10px] text-slate-400 mb-1">年柱</div>
+                    <div className="text-lg font-medium text-amber-200">{formData.baziInfo.pillars.year || '-'}</div>
+                  </div>
+                  <div className="flex-1 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+                    <div className="text-[10px] text-slate-400 mb-1">月柱</div>
+                    <div className="text-lg font-medium text-amber-200">{formData.baziInfo.pillars.month || '-'}</div>
+                  </div>
+                  <div className="flex-1 bg-indigo-900/30 p-2 rounded-lg border border-indigo-500/30 shadow-inner">
+                    <div className="text-[10px] text-indigo-300 mb-1">日柱(日主)</div>
+                    <div className="text-lg font-medium text-indigo-200">{formData.baziInfo.pillars.day || '-'}</div>
+                  </div>
+                  <div className="flex-1 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+                    <div className="text-[10px] text-slate-400 mb-1">時柱</div>
+                    <div className="text-lg font-medium text-amber-200">{formData.baziInfo.pillars.hour || '-'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 人類圖類型 */}
+            <div className="space-y-2">
+              <div className="flex items-center">
+                <label className="block text-sm font-medium text-slate-400">人類圖類型</label>
+                <InfoTooltip 
+                  title="尚未排盤？推薦免費排盤網站：" 
+                  links={[
+                    { name: "1. 亞洲人類圖學院 (全中文)", url: "https://humandesignasia.org/HowToGetYourChart" },
+                    { name: "2. Jovian Archive (官方正統)", url: "https://www.jovianarchive.com/Get_Your_Chart" },
+                    { name: "3. Human Design Report", url: "https://ch.humandesign.report/" }
+                  ]}
+                />
+              </div>
+              <div className="relative">
+                <select 
+                  name="hdType" 
+                  value={formData.hdType} 
+                  onChange={handleInputChange}
+                  className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                >
+                  {HD_TYPES.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+                <ChevronDown className="absolute right-3 top-3 text-slate-500 pointer-events-none w-5 h-5" />
+              </div>
+            </div>
+
+            {/* 人類圖角色 */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-slate-400">人類圖人生角色</label>
+              <div className="relative">
+                <select 
+                  name="hdProfile" 
+                  value={formData.hdProfile} 
+                  onChange={handleInputChange}
+                  className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                >
+                  {HD_PROFILES.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+                <ChevronDown className="absolute right-3 top-3 text-slate-500 pointer-events-none w-5 h-5" />
+              </div>
+            </div>
+
+            {/* 人類圖權威 */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-slate-400">人類圖內在權威</label>
+              <div className="relative">
+                <select 
+                  name="hdAuthority" 
+                  value={formData.hdAuthority} 
+                  onChange={handleInputChange}
+                  className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                >
+                  {HD_AUTHORITIES.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+                <ChevronDown className="absolute right-3 top-3 text-slate-500 pointer-events-none w-5 h-5" />
+              </div>
+            </div>
+
+            {/* 其他補充 */}
+            <div className="space-y-2 lg:col-span-2">
+              <label className="block text-sm font-medium text-slate-400">其他補充 (選填，如喜用神、八字格局)</label>
+              <input 
+                type="text" 
+                name="baziExtra" 
+                value={formData.baziExtra} 
+                onChange={handleInputChange}
+                placeholder="例如：喜水木、傷官見官..."
+                className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition placeholder:text-slate-600"
+              />
+            </div>
+          </div>
+
+          {/* 展開式：進階閘門選擇區塊 */}
+          {showAdvanced && (
+            <div className="mt-8 pt-6 border-t border-slate-800 animate-in fade-in slide-in-from-top-4">
+              <div className="mb-4">
+                <h3 className="text-lg font-medium text-indigo-300">勾選您的啟動閘門 (選填)</h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  若您有完整的人類圖，可於此勾選您圖中被圈起的數字（閘門）。系統將自動為您配對出具備完整能量的<strong className="text-pink-400">「通道」</strong>，並交由 AI 進行深層天賦解析。
+                </p>
+              </div>
+              
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                <div className="flex flex-wrap gap-2">
+                  {ALL_GATES.map(gate => {
+                    const isSelected = selectedGates.includes(gate);
+                    return (
+                      <button
+                        key={gate}
+                        onClick={() => toggleGate(gate)}
+                        title={`${gate} - ${GATE_NAMES[gate]}`}
+                        className={`w-10 h-10 rounded-full text-sm font-medium transition-all ${
+                          isSelected 
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
+                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'
+                        }`}
+                      >
+                        {gate}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {/* 已選閘門展示區 */}
+                {selectedGates.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-slate-800">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm text-indigo-400">已啟動 {selectedGates.length} 個閘門</p>
+                      <button 
+                        onClick={() => setSelectedGates([])}
+                        className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                      >
+                        全部清除
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {selectedGates.sort((a, b) => a - b).map(gate => (
+                        <span key={`badge-${gate}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-900/40 text-indigo-200 text-xs border border-indigo-700/50 animate-in fade-in zoom-in duration-200">
+                          <span className="font-bold text-indigo-300">{gate}</span>
+                          <span className="opacity-90">{GATE_NAMES[gate]}</span>
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* 自動配對之通道展示區 */}
+                    {activatedChannels.length > 0 && (
+                      <div className="mt-4 p-4 bg-pink-950/20 border border-pink-900/50 rounded-xl animate-in fade-in slide-in-from-bottom-2">
+                        <p className="text-sm text-pink-400 font-medium mb-3 flex items-center gap-2">
+                          <Sparkles className="w-4 h-4" /> 
+                          系統已為您配對出 {activatedChannels.length} 條完整通道：
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          {activatedChannels.map((channel, idx) => (
+                            <div key={`channel-${idx}`} className="bg-slate-900/80 border border-pink-800/30 rounded-lg p-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                              <span className="bg-pink-600/20 text-pink-300 font-bold px-3 py-1 rounded-md text-sm border border-pink-500/20 whitespace-nowrap w-fit">
+                                {channel.gates[0]} - {channel.gates[1]} 通道
+                              </span>
+                              <div className="flex flex-col">
+                                <span className="text-pink-200 text-sm font-medium">{channel.name}</span>
+                                <span className="text-slate-400 text-xs">{channel.desc}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-8 flex justify-end">
+            <button 
+              onClick={handleAnalyze} 
+              disabled={isAnalyzing}
+              className="w-full md:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center justify-center gap-1 min-w-[240px]"
+            >
+              <div className="flex items-center gap-2">
+                {isAnalyzing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Star className="w-5 h-5" />}
+                <span>生成專屬綜合解析</span>
+              </div>
+              {isAnalyzing && loadingStep && (
+                <span className="text-xs text-indigo-200 font-normal animate-pulse mt-1">{loadingStep}</span>
+              )}
+            </button>
+          </div>
+          {error && (
+            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg flex items-center gap-2 text-red-400">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <p className="text-sm">{error}</p>
+            </div>
+          )}
+        </section>
+
+        {/* 分析結果與問答區塊 */}
+        {analysisResult && (
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start animate-in fade-in zoom-in-95 duration-500">
+            
+            {/* 左側：分析報告 */}
+            <section className="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col shadow-xl max-h-[800px]">
+              <div className="flex items-center justify-between p-6 border-b border-slate-800 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="text-pink-400 w-6 h-6" />
+                  <h2 className="text-xl font-semibold text-slate-100">綜合命理分析報告</h2>
+                </div>
+                {/* 複製與下載按鈕 */}
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={handleCopy}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition tooltip-trigger flex items-center gap-1 text-sm"
+                    title="複製報告內容"
+                  >
+                    <Copy className="w-4 h-4" /> <span className="hidden sm:inline">複製</span>
+                  </button>
+                  <button 
+                    onClick={handleDownload}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition tooltip-trigger flex items-center gap-1 text-sm"
+                    title="下載報告文字檔"
+                  >
+                    <Download className="w-4 h-4" /> <span className="hidden sm:inline">下載</span>
+                  </button>
+                </div>
+              </div>
+              <div 
+                className="p-6 md:p-8 overflow-y-auto custom-scrollbar prose prose-invert max-w-none text-slate-300 leading-relaxed whitespace-pre-wrap"
+                dangerouslySetInnerHTML={formatText(analysisResult)}
+              />
+            </section>
+
+            {/* 右側：專屬顧問 Q&A */}
+            <section className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col shadow-xl h-[600px] lg:h-[800px]">
+              <div className="p-6 border-b border-slate-800 flex items-center gap-2">
+                <MessageCircle className="text-indigo-400 w-6 h-6" />
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-100">專屬命理顧問</h2>
+                  <p className="text-xs text-slate-400">基於您的綜合命盤進行問答</p>
+                </div>
+              </div>
+
+              {/* 聊天歷史紀錄 */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                {chatHistory.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center text-slate-500 space-y-3">
+                    <Sparkles className="w-10 h-10 opacity-20" />
+                    <p>報告閱讀完了嗎？<br/>您可以針對職涯、感情或生活方向發問。</p>
+                    <div className="flex flex-wrap justify-center gap-2 mt-4">
+                      {["我適合什麼樣的工作環境？", "在感情中我容易遇到什麼困難？", "我該如何做重大決定？"].map((suggestion, idx) => (
+                        <button 
+                          key={idx}
+                          onClick={() => setCurrentQuestion(suggestion)}
+                          className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full transition"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  chatHistory.map((chat, index) => (
+                    <div key={index} className={`flex ${chat.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] rounded-2xl p-4 ${
+                        chat.role === 'user' 
+                          ? 'bg-indigo-600 text-white rounded-tr-none' 
+                          : 'bg-slate-800 border border-slate-700 text-slate-200 rounded-tl-none'
+                      }`}>
+                        {chat.role === 'ai' ? (
+                          <div dangerouslySetInnerHTML={formatText(chat.content)} className="whitespace-pre-wrap text-sm leading-relaxed" />
+                        ) : (
+                          <p className="text-sm">{chat.content}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+                {isAsking && (
+                  <div className="flex justify-start">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl rounded-tl-none p-4 flex items-center gap-3">
+                      <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                      <span className="text-sm text-slate-400">顧問思考中...</span>
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* 聊天輸入框 */}
+              <div className="p-4 border-t border-slate-800 bg-slate-900 rounded-b-2xl">
+                <form onSubmit={handleAsk} className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={currentQuestion}
+                    onChange={(e) => setCurrentQuestion(e.target.value)}
+                    placeholder="輸入你想問的問題..."
+                    disabled={isAsking}
+                    className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-full pl-5 pr-12 py-3 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition disabled:opacity-50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isAsking || !currentQuestion.trim()}
+                    className="absolute right-2 p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500 transition"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </form>
+              </div>
+            </section>
+          </div>
+        )}
+      </main>
+      
+      {/* 隱藏的樣式表用於自訂捲軸 */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background-color: #334155;
+          border-radius: 20px;
+        }
+      `}} />
+    </div>
+  );
+}
