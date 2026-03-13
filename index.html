@@ -89,11 +89,22 @@
           <h2 class="text-xl font-semibold text-slate-100">輸入您的資料</h2>
         </div>
         
-        <!-- 開啟進階閘門分析按鈕 -->
-        <button id="toggle-advanced-btn" class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200">
-          <i data-lucide="settings-2" class="w-4 h-4"></i>
-          <span id="toggle-advanced-text">開啟進階閘門分析</span>
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- 匯入 / 匯出按鈕 -->
+          <input type="file" id="import-file" accept=".json" class="hidden" />
+          <button id="import-btn" class="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-slate-100">
+            <i data-lucide="upload" class="w-4 h-4"></i> 匯入
+          </button>
+          <button id="export-btn" class="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-slate-100">
+            <i data-lucide="download" class="w-4 h-4"></i> 匯出
+          </button>
+
+          <!-- 開啟進階閘門分析按鈕 -->
+          <button id="toggle-advanced-btn" class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200">
+            <i data-lucide="settings-2" class="w-4 h-4"></i>
+            <span id="toggle-advanced-text">開啟進階閘門分析</span>
+          </button>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -474,8 +485,57 @@
     let showAdvanced = false;
     let selectedGates = [];
     let analysisResult = '';
+    let chatHistory = []; // 新增：用於記錄與儲存對話歷史
     let isAnalyzing = false;
     let isAsking = false;
+
+    // --- 狀態儲存與載入 (LocalStorage) ---
+    function saveStateToLocal() {
+      const state = { formData, selectedGates, analysisResult, chatHistory };
+      localStorage.setItem('my_destiny_profile', JSON.stringify(state));
+    }
+
+    function restoreState(state) {
+      if (state.formData) formData = state.formData;
+      if (state.selectedGates) selectedGates = state.selectedGates;
+      if (state.analysisResult) analysisResult = state.analysisResult;
+      if (state.chatHistory) chatHistory = state.chatHistory;
+
+      // 更新輸入框 UI
+      document.getElementById('input-gender').value = formData.gender;
+      document.getElementById('input-mbti').value = formData.mbti;
+      document.getElementById('input-datetime').value = formData.birthDateTime;
+      document.getElementById('input-hdType').value = formData.hdType;
+      document.getElementById('input-hdProfile').value = formData.hdProfile;
+      document.getElementById('input-hdAuthority').value = formData.hdAuthority;
+      document.getElementById('input-extra').value = formData.baziExtra;
+
+      updateBaziDisplay();
+      renderGatesGrid();
+      renderSelectedGates();
+
+      // 還原分析報告 UI
+      if (analysisResult) {
+        document.getElementById('report-content').innerHTML = formatText(analysisResult);
+        document.getElementById('results-section').classList.remove('hidden');
+        document.getElementById('results-section').classList.add('grid');
+      } else {
+        document.getElementById('results-section').classList.add('hidden');
+        document.getElementById('results-section').classList.remove('grid');
+      }
+
+      // 還原聊天紀錄 UI
+      const list = document.getElementById('chat-history-list');
+      list.innerHTML = '';
+      if (chatHistory && chatHistory.length > 0) {
+        document.getElementById('chat-empty-state').classList.add('hidden');
+        chatHistory.forEach(chat => {
+          appendChatMessageUIOnly(chat.role, chat.content);
+        });
+      } else {
+        document.getElementById('chat-empty-state').classList.remove('hidden');
+      }
+    }
 
     // --- API 呼叫 ---
     const fetchWithRetry = async (url, options, maxRetries = 5) => {
@@ -534,22 +594,71 @@
         document.getElementById('input-api-key').value = savedApiKey;
       }
 
+      // 載入自動儲存的個人資料與報告
+      const savedProfile = localStorage.getItem('my_destiny_profile');
+      if (savedProfile) {
+        try {
+          restoreState(JSON.parse(savedProfile));
+        } catch (e) {
+          console.error("無法解析儲存的資料", e);
+        }
+      }
+
       // API Key 變更事件
       document.getElementById('input-api-key').addEventListener('input', (e) => {
         userApiKey = e.target.value;
         localStorage.setItem('gemini_api_key', userApiKey);
       });
 
-      // 綁定輸入變更
+      // 綁定輸入變更 (加入自動儲存機制)
       ['gender', 'mbti', 'hdType', 'hdProfile', 'hdAuthority', 'extra'].forEach(id => {
         const el = document.getElementById(`input-${id}`);
-        if(el) el.addEventListener('change', (e) => formData[id === 'extra' ? 'baziExtra' : id] = e.target.value);
+        if(el) el.addEventListener('change', (e) => {
+          formData[id === 'extra' ? 'baziExtra' : id] = e.target.value;
+          saveStateToLocal();
+        });
       });
 
       document.getElementById('input-datetime').addEventListener('change', (e) => {
         formData.birthDateTime = e.target.value;
         formData.baziInfo = calculateBazi(e.target.value);
         updateBaziDisplay();
+        saveStateToLocal();
+      });
+
+      // 匯出與匯入按鈕事件
+      document.getElementById('export-btn').addEventListener('click', () => {
+        const state = { formData, selectedGates, analysisResult, chatHistory };
+        const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `我的命理資料_${new Date().getTime()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('資料已成功匯出！');
+      });
+
+      document.getElementById('import-btn').addEventListener('click', () => {
+        document.getElementById('import-file').click();
+      });
+
+      document.getElementById('import-file').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const state = JSON.parse(ev.target.result);
+            restoreState(state);
+            saveStateToLocal();
+            showToast('資料已成功匯入！');
+          } catch (err) {
+            alert('檔案格式錯誤或資料損毀。');
+          }
+          e.target.value = ''; // Reset file input
+        };
+        reader.readAsText(file);
       });
 
       // 進階按鈕切換
@@ -576,6 +685,7 @@
         selectedGates = [];
         renderGatesGrid();
         renderSelectedGates();
+        saveStateToLocal();
       });
 
       // 分析按鈕
@@ -667,6 +777,7 @@
           else selectedGates.push(gate);
           renderGatesGrid();
           renderSelectedGates();
+          saveStateToLocal();
         };
         grid.appendChild(btn);
       });
@@ -768,6 +879,9 @@
       document.getElementById('chat-history-list').innerHTML = '';
       document.getElementById('chat-empty-state').classList.remove('hidden');
 
+      chatHistory = []; // 分析前重置對話歷史
+      saveStateToLocal();
+
       try {
         const steps = [
           '啟動 NotebookLM 專業知識庫檢索...',
@@ -817,6 +931,8 @@
         document.getElementById('results-section').classList.remove('hidden');
         document.getElementById('results-section').classList.add('grid');
         
+        saveStateToLocal(); // 儲存分析結果
+
         // 捲動到結果區
         document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -834,10 +950,8 @@
     }
 
     // --- 聊天流程 ---
-    function appendChatMessage(role, content) {
+    function appendChatMessageUIOnly(role, content) {
       const list = document.getElementById('chat-history-list');
-      document.getElementById('chat-empty-state').classList.add('hidden');
-      
       const div = document.createElement('div');
       div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
       
@@ -856,7 +970,15 @@
       
       div.appendChild(bubble);
       list.appendChild(div);
+    }
+
+    function appendChatMessage(role, content) {
+      document.getElementById('chat-empty-state').classList.add('hidden');
+      appendChatMessageUIOnly(role, content);
       
+      chatHistory.push({ role, content });
+      saveStateToLocal(); // 更新儲存的對話紀錄
+
       document.getElementById('chat-end-ref').scrollIntoView({ behavior: 'smooth' });
     }
 
