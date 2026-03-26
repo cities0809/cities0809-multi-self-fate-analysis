@@ -53,7 +53,7 @@
       <i data-lucide="sparkles" class="text-pink-400 w-8 h-8 hidden md:block"></i>
     </div>
     <p class="text-center text-slate-400 mt-2 text-sm max-w-2xl mx-auto">
-      結合人類圖的能量運作、MBTI的心理偏好，與東方八字的先天命理，為您繪製最立體的靈魂藍圖。
+      結合人類圖、MBTI、東方八字、西洋星座與血型，為您繪製最立體的靈魂藍圖。
     </p>
   </header>
 
@@ -117,6 +117,15 @@
           </div>
         </div>
 
+        <!-- 血型 -->
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-slate-400">血型</label>
+          <div class="relative">
+            <select id="input-bloodType" class="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"></select>
+            <i data-lucide="chevron-down" class="absolute right-3 top-3 text-slate-500 pointer-events-none w-5 h-5"></i>
+          </div>
+        </div>
+
         <!-- MBTI -->
         <div class="space-y-2">
           <div class="flex items-center">
@@ -139,8 +148,21 @@
           </div>
         </div>
 
+        <!-- 西洋星座 (自動推算) -->
+        <div class="space-y-2">
+          <div class="flex items-center">
+            <label class="block text-sm font-medium text-slate-400">西洋星座 (由生日自動推算)</label>
+          </div>
+          <div class="relative">
+            <div class="w-full bg-slate-900 border border-slate-700 text-indigo-300 rounded-lg p-3 flex items-center gap-2 select-none">
+              <i data-lucide="moon-star" class="w-4 h-4"></i>
+              <span id="zodiac-text" class="font-medium">摩羯座</span>
+            </div>
+          </div>
+        </div>
+
         <!-- 八字四柱 (自動換算) -->
-        <div class="space-y-2 lg:row-span-2">
+        <div class="space-y-2 lg:row-span-2 lg:col-span-2">
           <label class="block text-sm font-medium text-slate-400">出生日期與時間</label>
           <input type="datetime-local" id="input-datetime" value="1990-01-01T12:00" class="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition [color-scheme:dark] mb-3"/>
           
@@ -212,7 +234,7 @@
         </div>
 
         <!-- 其他補充 -->
-        <div class="space-y-2 lg:col-span-2">
+        <div class="space-y-2 lg:col-span-3">
           <label class="block text-sm font-medium text-slate-400">其他補充 (選填，如喜用神、八字格局)</label>
           <input type="text" id="input-extra" placeholder="例如：喜水木、傷官見官..." class="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition placeholder:text-slate-600"/>
         </div>
@@ -346,6 +368,7 @@
     const HD_PROFILES = ["1/3", "1/4", "2/4", "2/5", "3/5", "3/6", "4/6", "4/1", "5/1", "5/2", "6/2", "6/3"];
     const HD_AUTHORITIES = ["情緒權威 (Emotional Authority)", "薦骨權威 (Sacral Authority)", "直覺權威 (Splenic Authority)", "意志力權威 (Ego / Heart Authority)", "自我投射型權威 (Self-Projected Authority)", "環境型權威（無內在權威）(Environmental / Mental Authority)", "月亮權威 (Lunar Authority)"];
     const GENDER_OPTIONS = ["男", "女", "其他"];
+    const BLOOD_TYPE_OPTIONS = ["A", "B", "AB", "O", "未檢測"];
 
     const ALL_GATES = Array.from({ length: 64 }, (_, i) => i + 1);
     const GATE_NAMES = {
@@ -402,6 +425,23 @@
       { gates: [42, 53], name: "循環通道", desc: "結束舊有與開啟新局的成長力" },
       { gates: [47, 64], name: "抽象通道", desc: "在混亂圖像中理出意義的視覺家" }
     ];
+
+    // --- 星座計算邏輯 ---
+    const calculateZodiac = (month, day) => {
+      if ((month == 1 && day >= 20) || (month == 2 && day <= 18)) return "水瓶座";
+      if ((month == 2 && day >= 19) || (month == 3 && day <= 20)) return "雙魚座";
+      if ((month == 3 && day >= 21) || (month == 4 && day <= 19)) return "牡羊座";
+      if ((month == 4 && day >= 20) || (month == 5 && day <= 20)) return "金牛座";
+      if ((month == 5 && day >= 21) || (month == 6 && day <= 20)) return "雙子座";
+      if ((month == 6 && day >= 21) || (month == 7 && day <= 22)) return "巨蟹座";
+      if ((month == 7 && day >= 23) || (month == 8 && day <= 22)) return "獅子座";
+      if ((month == 8 && day >= 23) || (month == 9 && day <= 22)) return "處女座";
+      if ((month == 9 && day >= 23) || (month == 10 && day <= 22)) return "天秤座";
+      if ((month == 10 && day >= 23) || (month == 11 && day <= 21)) return "天蠍座";
+      if ((month == 11 && day >= 22) || (month == 12 && day <= 21)) return "射手座";
+      if ((month == 12 && day >= 22) || (month == 1 && day <= 19)) return "摩羯座";
+      return "未知";
+    };
 
     // --- 八字計算邏輯 ---
     const calculateBazi = (dateTimeString) => {
@@ -473,7 +513,9 @@
     // --- 狀態變數 ---
     let formData = {
       gender: GENDER_OPTIONS[0],
+      bloodType: BLOOD_TYPE_OPTIONS[0],
       mbti: MBTI_OPTIONS[0],
+      zodiac: calculateZodiac(1, 1),
       hdType: HD_TYPES[0],
       hdProfile: HD_PROFILES[0],
       hdAuthority: HD_AUTHORITIES[0],
@@ -503,12 +545,14 @@
 
       // 更新輸入框 UI
       document.getElementById('input-gender').value = formData.gender;
+      document.getElementById('input-bloodType').value = formData.bloodType;
       document.getElementById('input-mbti').value = formData.mbti;
       document.getElementById('input-datetime').value = formData.birthDateTime;
       document.getElementById('input-hdType').value = formData.hdType;
       document.getElementById('input-hdProfile').value = formData.hdProfile;
       document.getElementById('input-hdAuthority').value = formData.hdAuthority;
       document.getElementById('input-extra').value = formData.baziExtra;
+      document.getElementById('zodiac-text').textContent = formData.zodiac;
 
       updateBaziDisplay();
       renderGatesGrid();
@@ -553,7 +597,6 @@
     };
 
     const generateAIResponse = async (prompt, systemInstruction, apiKey) => {
-      // 這裡使用了修正後的公開穩定模型端點
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       const payload = {
         contents: [{ parts: [{ text: prompt }] }],
@@ -585,6 +628,7 @@
       lucide.createIcons();
       initSelectOptions();
       updateBaziDisplay();
+      document.getElementById('zodiac-text').textContent = formData.zodiac;
       renderGatesGrid();
 
       // 從 LocalStorage 載入 API Key
@@ -611,7 +655,7 @@
       });
 
       // 綁定輸入變更 (加入自動儲存機制)
-      ['gender', 'mbti', 'hdType', 'hdProfile', 'hdAuthority', 'extra'].forEach(id => {
+      ['gender', 'bloodType', 'mbti', 'hdType', 'hdProfile', 'hdAuthority', 'extra'].forEach(id => {
         const el = document.getElementById(`input-${id}`);
         if(el) el.addEventListener('change', (e) => {
           formData[id === 'extra' ? 'baziExtra' : id] = e.target.value;
@@ -622,6 +666,15 @@
       document.getElementById('input-datetime').addEventListener('change', (e) => {
         formData.birthDateTime = e.target.value;
         formData.baziInfo = calculateBazi(e.target.value);
+        
+        // 解析月份與日期並計算星座
+        const datePart = e.target.value.split('T')[0];
+        if (datePart) {
+           const [year, month, day] = datePart.split('-').map(Number);
+           formData.zodiac = calculateZodiac(month, day);
+           document.getElementById('zodiac-text').textContent = formData.zodiac;
+        }
+
         updateBaziDisplay();
         saveStateToLocal();
       });
@@ -745,6 +798,7 @@
         });
       };
       populate('input-gender', GENDER_OPTIONS);
+      populate('input-bloodType', BLOOD_TYPE_OPTIONS);
       populate('input-mbti', MBTI_OPTIONS);
       populate('input-hdType', HD_TYPES);
       populate('input-hdProfile', HD_PROFILES);
@@ -885,7 +939,7 @@
       try {
         const steps = [
           '啟動 NotebookLM 專業知識庫檢索...',
-          '比對八字十神、合化刑衝與流年理論...',
+          '比對八字十神、星座屬性與血型性格...',
           '載入人類圖能量中心、閘門與去制約法則...',
           '分析 MBTI 八大認知功能與動態發展...',
           '星盤與矩陣運算中，生成綜合報告...'
@@ -897,12 +951,13 @@
         }
 
         const activatedChannels = CHANNELS.filter(c => selectedGates.includes(c.gates[0]) && selectedGates.includes(c.gates[1]));
-        const systemInstruction = `你是一位頂級的「全方位命理與心理學綜合大師」。你的解析必須具備極高的專業度，請嚴格基於以下專業知識庫的深度進行推演：
-1. **八字命理**：不只看表面五行，須帶入「日主強弱判斷」、「十神心性與生剋制化」、「干支六合三合刑衝破害」、「大運流年與本命的伏吟反吟」等進階子平法理論。
-2. **人類圖 (Human Design)**：嚴格遵循 Ra Uru Hu 的區分科學。解析須包含「九大能量中心的定義與空白(非自己制約)」、「四大類型的專屬策略與光暈(Aura)特性」、「內在權威的運作機制」，以及若有提供的「特定閘門/通道的天賦化學反應」。
-3. **MBTI 十六型人格**：超越簡單的四字母刻板印象，必須運用榮格心理學的「八大認知功能 (Dominant, Auxiliary, Tertiary, Inferior Functions，如 Ni, Te, Fi, Se)」，分析其心理動力、壓力狀態(Grip/Loop)及成長路徑。
+        const systemInstruction = `你是一位頂級的「全方位命理與心理學綜合大師」。你的解析必須具備極高的專業度，請嚴格基於以下五大專業知識庫的深度進行推演：
+1. **八字命理**：不只看表面五行，須帶入「日主強弱判斷」、「十神心性與生剋制化」、「大運流年」等進階子平法理論。
+2. **人類圖 (Human Design)**：嚴格遵循 Ra Uru Hu 的區分科學。解析須包含「能量中心定義」、「四大類型專屬策略與權威」，以及「特定閘門/通道的天賦化學反應」。
+3. **MBTI 十六型人格**：運用榮格心理學的「八大認知功能 (Dominant, Auxiliary, Tertiary, Inferior)」，分析其心理動力及成長路徑。
+4. **西洋占星與血型**：結合太陽星座的核心性格與血型特質，提供更全面的行為模式參考。
 
-你的語氣客觀、溫暖、具有啟發性。任務是將這三種系統的深層資訊進行「交叉比對與揉合」，找出共鳴點與互補之處，給予使用者具體、有建設性且符合專業學理的人生建議。`;
+你的語氣客觀、溫暖、具有啟發性。任務是將這幾種系統的深層資訊進行「交叉比對與揉合」，找出共鳴點與互補之處，給予使用者具體、有建設性且符合專業學理的人生建議。`;
 
         let gatesContext = '';
         if (selectedGates.length > 0) gatesContext += `\n- 人類圖啟動閘門：${selectedGates.sort((a,b)=>a-b).map(g => `${g} (${GATE_NAMES[g]})`).join(', ')}`;
@@ -912,6 +967,8 @@
         const prompt = `請為我進行一份深度的個人命理綜合解析。以下是我的資料：
 - 性別：${formData.gender}
 - 出生日期與時間：${formData.birthDateTime.replace('T', ' ')}
+- 西洋星座：${formData.zodiac}
+- 血型：${formData.bloodType}
 - MBTI 人格：${formData.mbti}
 - 人類圖類型：${formData.hdType}
 - 人類圖人生角色：${formData.hdProfile}
@@ -920,10 +977,10 @@
 - 其他八字/命理補充：${formData.baziExtra || "無"}
 
 請根據上述綜合資料，提供一份結構化的深度分析報告，包含以下段落：
-1. **命理原廠設定 (核心本質)**：融合三個系統，深入描述我最核心的性格特質、靈魂能量與認知功能運作方式。
-2. **天賦矩陣與潛能 (優勢分析)**：這三個系統共同指向了我哪些最強大的優勢？(請具體點出是哪個十神、哪個認知功能或哪個能量中心/通道帶來的)。
-3. **陰影面與非自己制約 (盲點與挑戰)**：在能量運作或性格上，我有什麼需要注意的矛盾？(例如：空白能量中心的制約、MBTI第四功能的壓力爆發、八字的五行失衡或相衝)。
-4. **專屬人生與決策策略 (行動指南)**：結合人類圖的「策略與權威」、MBTI的「心智發展方向」，以及八字的「通關用神與平衡之道」，給予我具體的生活、職涯或感情建議。`;
+1. **命理原廠設定 (核心本質)**：融合以上五大系統，深入描述我最核心的性格特質、靈魂能量與認知功能運作方式。
+2. **天賦矩陣與潛能 (優勢分析)**：這些系統共同指向了我哪些最強大的優勢？(請具體點出是哪個星盤元素、十神、認知功能或能量中心帶來的)。
+3. **陰影面與非自己制約 (盲點與挑戰)**：在能量運作或性格上，我有什麼需要注意的矛盾？(例如：空白能量中心的制約、MBTI第四功能的壓力爆發、八字的五行失衡或星座/血型盲點)。
+4. **專屬人生與決策策略 (行動指南)**：結合人類圖的「策略與權威」、MBTI的「心智發展方向」，給予我具體的生活、職涯或感情建議。`;
 
         analysisResult = await generateAIResponse(prompt, systemInstruction, userApiKey);
         
@@ -1005,9 +1062,11 @@
       document.getElementById('chat-end-ref').scrollIntoView({ behavior: 'smooth' });
 
       const systemInstruction = `你是一位全方位命理與心理學綜合大師。你需要根據使用者的命理資料與先前的綜合分析報告來回答他們的問題。
-請確保你的回答融合了他們 MBTI(認知功能)、人類圖(能量中心與閘門)與八字(十神與五行)的專業特質，給予量身打造、具體且實用的建議。不要給出空泛的答案。`;
+請確保你的回答融合了他們 MBTI(認知功能)、人類圖(能量中心與閘門)、八字(十神與五行)、血型與星座的專業特質，給予量身打造、具體且實用的建議。不要給出空泛的答案。`;
 
       const prompt = `這是我的命理資料：
+- 西洋星座：${formData.zodiac}
+- 血型：${formData.bloodType}
 - MBTI：${formData.mbti}
 - 人類圖：${formData.hdType}, ${formData.hdProfile}, 權威:${formData.hdAuthority}
 ${selectedGates.length > 0 ? `- 啟動閘門：${selectedGates.join(', ')}` : ''}
@@ -1017,7 +1076,7 @@ ${selectedGates.length > 0 ? `- 啟動閘門：${selectedGates.join(', ')}` : ''
 ${analysisResult.substring(0, 1000)}...
 
 我的問題是：「${val}」
-請用客觀、溫暖且專業的語氣回答我，並指出這個答案是如何從我的命理組合中推導出來的。`;
+請用客觀、溫暖且專業的語氣回答我，並指出這個答案是如何從我的綜合命理組合中推導出來的。`;
 
       try {
         const result = await generateAIResponse(prompt, systemInstruction, userApiKey);
@@ -1036,3 +1095,5 @@ ${analysisResult.substring(0, 1000)}...
   </script>
 </body>
 </html>
+
+
